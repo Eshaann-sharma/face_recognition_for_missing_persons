@@ -14,7 +14,7 @@ mtcnn = MTCNN(keep_all=True, device=device)
 resnet = InceptionResnetV1(pretrained='vggface2').eval().to(device)
 
 # Load Reference Image
-ref_img_path = "person.jpeg"  # Replace with your image file
+ref_img_path = "backend/person.jpeg"  # Replace with your image file
 ref_img = Image.open(ref_img_path).convert("RGB")
 ref_face = mtcnn(ref_img)
 
@@ -27,16 +27,16 @@ ref_face = torch.nn.functional.interpolate(ref_face.unsqueeze(0), size=(160, 160
 ref_embedding = resnet(ref_face.to(device)).detach().cpu().numpy()
 
 # Create Output Folder
-output_folder = "detected_faces"
+output_folder = "backend/detected_faces"
 os.makedirs(output_folder, exist_ok=True)
 
 # Process Video
-video_path = "video.mp4"  # Replace with your video file
+video_path = "backend/video.mp4"  # Replace with your video file
 cap = cv2.VideoCapture(video_path)
 frame_width = int(cap.get(3))
 frame_height = int(cap.get(4))
 fps = int(cap.get(cv2.CAP_PROP_FPS))
-out = cv2.VideoWriter("Video_tracked.mp4", cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame_width, frame_height))
+out = cv2.VideoWriter("backend/Video_tracked.mp4", cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame_width, frame_height))
 
 timestamps = []
 frame_count = 0
@@ -67,7 +67,7 @@ while cap.isOpened():
                 
             # Compare Faces
             distance = np.linalg.norm(face_embedding - ref_embedding)
-            if distance < 0.6:  # Threshold for matching
+            if distance < 0.7:  # Threshold for matching
                 timestamp = frame_count / fps
                 timestamps.append(timestamp)
                 
