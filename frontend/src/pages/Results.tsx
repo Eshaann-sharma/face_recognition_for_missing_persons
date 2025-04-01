@@ -1,105 +1,116 @@
 import React, { useState, useEffect } from 'react';
-import { format } from 'date-fns';
-import { DetectedMatch } from '../types';
-import { MapPin, Calendar, Percent } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { Play, Loader2 } from 'lucide-react';
 
 export function Results() {
-  const [matches, setMatches] = useState<DetectedMatch[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const location = useLocation();
+  const uploadedFile = location.state?.file || null; // Get video file
+  const uploadedImage = location.state?.image || null; // Get image file
+
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [timestamps, setTimestamps] = useState<number[]>([]);
+  const [trackedVideoUrl, setTrackedVideoUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulate API call
-    const fetchResults = async () => {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Mock data
-      const mockMatches: DetectedMatch[] = [
-        {
-          id: '1',
-          confidence: 89.5,
-          timestamp: new Date().toISOString(),
-          location: 'Central Station, Platform 2',
-          imageUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2',
-          cameraId: 'CAM_001'
-        },
-        {
-          id: '2',
-          confidence: 76.8,
-          timestamp: new Date().toISOString(),
-          location: 'Shopping Mall, East Entrance',
-          imageUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d',
-          cameraId: 'CAM_003'
-        }
-      ];
+    if (!uploadedFile || !uploadedImage) {
+      console.warn('No uploaded file or image found!');
+    }
+  }, [uploadedFile, uploadedImage]);
 
-      setMatches(mockMatches);
-      setIsLoading(false);
-    };
+  const handleStartProcessing = async () => {
+    if (!uploadedFile || !uploadedImage) {
+      alert('No file or image to process!');
+      return;
+    }
 
-    fetchResults();
-  }, []);
+    setIsProcessing(true);
+    setTimestamps([]);
+    setTrackedVideoUrl(null);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
+    try {
+      const formData = new FormData();
+      formData.append('image', uploadedImage);
+      formData.append('video', uploadedFile);
+
+      const response = await fetch('http://localhost:5001/detect_faces', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Failed to process file');
+
+      const data = await response.json();
+
+      setTimestamps(data.timestamps || []);
+      setTrackedVideoUrl(`http://localhost:5001${data.video_url}`);
+    } catch (error) {
+      console.error('Processing failed:', error);
+      alert('Error processing file.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-          Search Results
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          Found {matches.length} potential matches in CCTV footage
-        </p>
+    <div className="max-w-4xl mx-auto">
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white text-center mb-6">
+        Search Results
+      </h1>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 text-center">
+        <button
+          onClick={handleStartProcessing}
+          disabled={isProcessing}
+          className={`inline-flex items-center px-6 py-3 rounded-lg text-white font-semibold ${
+            isProcessing
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700'
+          }`}
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 className="animate-spin h-5 w-5 mr-2" />
+              Processing...
+            </>
+          ) : (
+            <>
+              <Play className="h-5 w-5 mr-2" />
+              Start Processing
+            </>
+          )}
+        </button>
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {matches.map((match) => (
-          <div
-            key={match.id}
-            className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden"
-          >
-            <div className="relative">
-              <img
-                src={match.imageUrl}
-                alt={`Match ${match.id}`}
-                className="w-full h-48 object-cover"
-              />
-              <div className="absolute top-2 right-2 bg-blue-600 text-white px-2 py-1 rounded-md text-sm font-semibold flex items-center">
-                <Percent className="h-4 w-4 mr-1" />
-                {match.confidence.toFixed(1)}%
-              </div>
-            </div>
-
-            <div className="p-4">
-              <div className="space-y-2">
-                <div className="flex items-center text-gray-600 dark:text-gray-400">
-                  <MapPin className="h-4 w-4 mr-2" />
-                  <span>{match.location}</span>
-                </div>
-                <div className="flex items-center text-gray-600 dark:text-gray-400">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  <span>{format(new Date(match.timestamp), 'PPp')}</span>
-                </div>
-              </div>
-
-              <button
-                className="mt-4 w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors"
-                onClick={() => {
-                  // Implement view details logic
-                }}
+      {timestamps.length > 0 && (
+        <div className="mt-6 bg-gray-50 dark:bg-gray-900/20 p-6 rounded-xl shadow-md">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            Person Found at:
+          </h2>
+          <ul className="flex flex-wrap gap-3">
+            {timestamps.map((timestamp, index) => (
+              <li
+                key={index}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg font-medium"
               >
-                View Details
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+                {timestamp} sec
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {trackedVideoUrl && (
+        <div className="mt-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            Tracked Video:
+          </h2>
+          
+          <video controls className="w-full rounded-lg shadow-lg">
+            <source src={trackedVideoUrl} type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
+        </div>
+      )}
     </div>
   );
 }

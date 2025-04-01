@@ -33,7 +33,7 @@ export function Home() {
           Advanced facial recognition technology to help locate missing persons through CCTV footage analysis.
         </p>
         <button
-          onClick={() => navigate('/upload')}
+          onClick={() => navigate('/videoupload')}
           className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors"
         >
           Start Search
@@ -69,7 +69,7 @@ export function Home() {
             <div className="bg-blue-100 dark:bg-blue-900 p-4 rounded-full mb-4">
               <Upload className="h-8 w-8 text-blue-600 dark:text-blue-400" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">Upload Photo</h3>
+            <h3 className="text-white font-semibold mb-2">Upload Photo</h3>
             <p className="text-gray-600 dark:text-gray-400">
               Upload a recent photo of the missing person
             </p>
@@ -78,7 +78,7 @@ export function Home() {
             <div className="bg-blue-100 dark:bg-blue-900 p-4 rounded-full mb-4">
               <Search className="h-8 w-8 text-blue-600 dark:text-blue-400" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">AI Analysis</h3>
+            <h3 className="text-white font-semibold mb-2">AI Analysis</h3>
             <p className="text-gray-600 dark:text-gray-400">
               Our AI analyzes CCTV footage for matches
             </p>
@@ -87,9 +87,9 @@ export function Home() {
             <div className="bg-blue-100 dark:bg-blue-900 p-4 rounded-full mb-4">
               <Clock className="h-8 w-8 text-blue-600 dark:text-blue-400" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">Get Results</h3>
+            <h3 className="text-white font-semibold mb-2">Get Results</h3>
             <p className="text-gray-600 dark:text-gray-400">
-              Review matches with location and timestamp
+              Review matches with Timestamp and Clips
             </p>
           </div>
         </div>

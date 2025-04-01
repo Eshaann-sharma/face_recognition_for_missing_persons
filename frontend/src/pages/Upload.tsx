@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ImageUpload } from '../components/ImageUpload';
-import { Search } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 export function Upload() {
   const navigate = useNavigate();
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
 
   const handleImageSelect = (file: File) => {
     setSelectedImage(file);
@@ -16,25 +14,15 @@ export function Upload() {
 
   const handleClear = () => {
     if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
+      URL.revokeObjectURL(previewUrl); // Clean up URL object
     }
     setSelectedImage(null);
     setPreviewUrl(null);
   };
 
-  const handleSearch = async () => {
+  const handleProceed = () => {
     if (!selectedImage) return;
-
-    setIsSearching(true);
-    try {
-      // Implement API call to backend here
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate API call
-      navigate('/results');
-    } catch (error) {
-      console.error('Search failed:', error);
-    } finally {
-      setIsSearching(false);
-    }
+    navigate('/videoupload', { state: { image: selectedImage } }); // Passing the selected image to the next page
   };
 
   return (
@@ -44,33 +32,53 @@ export function Upload() {
           Upload Photo for Search
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
-          Upload a clear, recent photo of the person you're looking for
+          Upload a clear, recent photo of the person you're looking for.
         </p>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
-        <ImageUpload
-          onImageSelect={handleImageSelect}
-          selectedImage={selectedImage}
-          previewUrl={previewUrl}
-          onClear={handleClear}
-        />
+        <div className="mb-6">
+          {/* Image Upload Input */}
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => e.target.files && handleImageSelect(e.target.files[0])}
+            className="block w-full text-gray-700 dark:text-white"
+          />
+        </div>
 
+        {/* Image Preview */}
+        {previewUrl && (
+          <div className="mb-6">
+            <img
+              src={previewUrl}
+              alt="Image Preview"
+              className="w-full h-auto rounded-lg shadow-md"
+            />
+          </div>
+        )}
+
+        {/* Clear Image Button */}
+        {selectedImage && (
+          <div className="text-center">
+            <button
+              onClick={handleClear}
+              className="inline-flex items-center px-6 py-2 rounded-lg text-red-600 font-semibold border border-red-600 hover:bg-red-100"
+            >
+              Clear Image
+            </button>
+          </div>
+        )}
+
+        {/* Proceed Button */}
         {selectedImage && (
           <div className="mt-6 text-center">
             <button
-              onClick={handleSearch}
-              disabled={isSearching}
-              className={`
-                inline-flex items-center px-6 py-3 rounded-lg text-white font-semibold
-                ${isSearching
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700'
-                }
-              `}
+              onClick={handleProceed}
+              className="inline-flex items-center px-6 py-3 rounded-lg text-white font-semibold bg-blue-600 hover:bg-blue-700"
             >
-              <Search className="h-5 w-5 mr-2" />
-              {isSearching ? 'Searching...' : 'Search in CCTV Footage'}
+              <ArrowRight className="h-5 w-5 mr-2" />
+              Proceed to Upload Video
             </button>
           </div>
         )}

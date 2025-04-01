@@ -1,4 +1,5 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
+from flask import send_file
 from flask_cors import CORS
 import cv2
 import torch
@@ -19,7 +20,9 @@ mtcnn = MTCNN(keep_all=True, device=device)
 resnet = InceptionResnetV1(pretrained='vggface2').eval().to(device)
 
 UPLOAD_FOLDER = "uploads"
+OUTPUT_FOLDER = "processed"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 @app.route("/detect_faces", methods=["POST"])
 def detect_faces():
@@ -31,6 +34,7 @@ def detect_faces():
 
     image_path = os.path.join(UPLOAD_FOLDER, "person.jpeg")
     video_path = os.path.join(UPLOAD_FOLDER, "video.mp4")
+    output_video_path = os.path.join(OUTPUT_FOLDER, "tracked_video.mp4")
 
     image_file.save(image_path)
     video_file.save(video_path)
@@ -48,7 +52,11 @@ def detect_faces():
 
     # Process Video
     cap = cv2.VideoCapture(video_path)
+    frame_width = int(cap.get(3))
+    frame_height = int(cap.get(4))
     fps = int(cap.get(cv2.CAP_PROP_FPS))
+    out = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame_width, frame_height))
+
     timestamps = []
     frame_count = 0
 
@@ -77,9 +85,29 @@ def detect_faces():
                     timestamp = frame_count / fps
                     timestamps.append(timestamp)
 
-    cap.release()
+                    # Draw bounding box on frame
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.putText(frame, f"Match {timestamp:.2f}s", (x1, y1 - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-    return jsonify({"timestamps": timestamps})
+        out.write(frame)
+
+    cap.release()
+    out.release()
+
+    return jsonify({
+        "timestamps": timestamps,
+        "video_url": f"/get_video"
+    })
+
+@app.route("/get_video", methods=["GET"])
+def get_video():
+    video_path = os.path.join(os.getcwd(), OUTPUT_FOLDER, "tracked_video.mp4")    
+    print(f"Looking for video at: {os.path.abspath(video_path)}")
+    if os.path.exists(video_path):
+        return send_file(video_path, mimetype="video/mp4", as_attachment=False)
+    else:
+        return jsonify({"error": "Video file not found"}), 404
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)
