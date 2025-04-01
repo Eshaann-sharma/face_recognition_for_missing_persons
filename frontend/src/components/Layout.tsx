@@ -20,8 +20,8 @@ export function Layout({ children }: LayoutProps) {
   const navItems = [
     { path: '/', label: 'Home', icon: UserSearch },
     { path: '/upload', label: 'Upload Image', icon: Upload },
+    { path: '/videoupload', label: 'Upload Video', icon: Camera },
     { path: '/results', label: 'Search Results', icon: Search },
-    { path: '/live', label: 'Live Feed', icon: Camera },
   ];
 
   return (
@@ -84,7 +84,7 @@ export function Layout({ children }: LayoutProps) {
         <footer className="bg-white dark:bg-gray-800 shadow-md mt-auto">
           <div className="container mx-auto px-4 py-6">
             <p className="text-center text-gray-600 dark:text-gray-400">
-              © 2024 FindPerson AI. All rights reserved.
+              © 2025 Drishti. All rights reserved.
             </p>
           </div>
         </footer>

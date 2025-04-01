@@ -4,7 +4,7 @@ import { Layout } from './components/Layout';
 import { Home } from './pages/Home';
 import { Upload } from './pages/Upload';
 import { Results } from './pages/Results';
-import { Live } from './pages/Live';
+import { VideoUpload} from './pages/videoupload';
 import { useAuthStore } from './store/authStore';
 
 function App() {
@@ -46,8 +46,8 @@ function App() {
             element={isAuthenticated ? <Results /> : <Navigate to="/" />}
           />
           <Route
-            path="/live"
-            element={isAuthenticated ? <Live /> : <Navigate to="/" />}
+            path="/videoupload"
+            element={isAuthenticated ? <VideoUpload /> : <Navigate to="/" />}
           />
         </Routes>
       </Layout>
