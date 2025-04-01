@@ -1,5 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
-from flask import send_file
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import cv2
 import torch
@@ -9,7 +8,7 @@ from facenet_pytorch import MTCNN, InceptionResnetV1
 from PIL import Image
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend communication
+CORS(app)
 
 # Device Configuration
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -39,7 +38,7 @@ def detect_faces():
     image_file.save(image_path)
     video_file.save(video_path)
 
-    # Load Reference Image
+    # Load and Process Reference Image
     ref_img = Image.open(image_path).convert("RGB")
     ref_face = mtcnn(ref_img)
 
@@ -50,12 +49,13 @@ def detect_faces():
     ref_face = torch.nn.functional.interpolate(ref_face.unsqueeze(0), size=(160, 160), mode='bilinear', align_corners=False)
     ref_embedding = resnet(ref_face.to(device)).detach().cpu().numpy()
 
-    # Process Video
+    # Open Video for Processing
     cap = cv2.VideoCapture(video_path)
     frame_width = int(cap.get(3))
     frame_height = int(cap.get(4))
-    fps = int(cap.get(cv2.CAP_PROP_FPS))
-    out = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame_width, frame_height))
+    fps = max(1, int(cap.get(cv2.CAP_PROP_FPS)))  # Ensure FPS is at least 1
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_video_path, fourcc, float(fps), (frame_width, frame_height))
 
     timestamps = []
     frame_count = 0
@@ -69,26 +69,40 @@ def detect_faces():
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         frame_pil = Image.fromarray(rgb_frame)
 
+        # Detect faces in the frame
         boxes, _ = mtcnn.detect(frame_pil)
+
         if boxes is not None:
+            face_tensors = []
+            face_coords = []
+
             for box in boxes:
                 x1, y1, x2, y2 = map(int, box)
                 face_crop = frame_pil.crop((x1, y1, x2, y2))
 
+                # Convert to tensor and resize
                 face_tensor = torch.tensor(np.array(face_crop)).permute(2, 0, 1).float() / 255.0
                 face_tensor = torch.nn.functional.interpolate(face_tensor.unsqueeze(0), size=(160, 160), mode='bilinear', align_corners=False)
 
-                face_embedding = resnet(face_tensor.to(device)).detach().cpu().numpy()
-                distance = np.linalg.norm(face_embedding - ref_embedding)
+                face_tensors.append(face_tensor)
+                face_coords.append((x1, y1, x2, y2))
 
-                if distance < 0.7:  # Matching threshold
-                    timestamp = frame_count / fps
-                    timestamps.append(timestamp)
+            # Batch process face embeddings
+            if face_tensors:
+                face_tensors = torch.cat(face_tensors).to(device)
+                face_embeddings = resnet(face_tensors).detach().cpu().numpy()
 
-                    # Draw bounding box on frame
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    cv2.putText(frame, f"Match {timestamp:.2f}s", (x1, y1 - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                # Compare all detected faces with reference face
+                for i, face_embedding in enumerate(face_embeddings):
+                    distance = np.linalg.norm(face_embedding - ref_embedding)
+                    if distance < 0.7:  # Matching threshold
+                        timestamp = frame_count / fps
+                        timestamps.append(timestamp)
+
+                        x1, y1, x2, y2 = face_coords[i]
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                        cv2.putText(frame, f"Match {timestamp:.2f}s", (x1, y1 - 10),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
         out.write(frame)
 
@@ -97,7 +111,7 @@ def detect_faces():
 
     return jsonify({
         "timestamps": timestamps,
-        "video_url": f"/get_video"
+        "video_url": "/get_video"
     })
 
 @app.route("/get_video", methods=["GET"])
