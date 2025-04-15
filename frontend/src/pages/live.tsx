@@ -42,7 +42,7 @@ export function Live() {
 
   const captureFrame = async () => {
     if (!videoRef.current || !stream) return;
-
+  
     setIsLoading(true);
     try {
       const canvas = document.createElement('canvas');
@@ -50,21 +50,30 @@ export function Live() {
       canvas.height = videoRef.current.videoHeight;
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Could not get canvas context');
-
+  
       ctx.drawImage(videoRef.current, 0, 0);
       const imageData = canvas.toDataURL('image/jpeg');
-
-      // Send to your API endpoint
-      const response = await fetch('/api/face-recognition', {
+  
+      const response = await fetch('http://localhost:5001/api/face-recognition', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ image: imageData }),
       });
-
+  
       const result = await response.json();
-      setLastResult(result.match ? 'Match found!' : 'No match found');
+  
+      if (response.ok) {
+        if (result.match) {
+          setLastResult(`Match found: ${result.person}`);
+        } else {
+          setLastResult('⚠️ No match found');
+        }
+      } else {
+        setLastResult(`Server error: ${result.error || 'Unknown error'}`);
+      }
+  
     } catch (err) {
       console.error('Error capturing frame:', err);
       setLastResult('Error processing image');

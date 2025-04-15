@@ -1,11 +1,16 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import cv2
+import base64
 import torch
 import numpy as np
 import os
 from facenet_pytorch import MTCNN, InceptionResnetV1
 from PIL import Image
+from io import BytesIO
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 app = Flask(__name__)
 CORS(app)
@@ -18,10 +23,48 @@ print(f"Running on device: {device}")
 mtcnn = MTCNN(keep_all=True, device=device)
 resnet = InceptionResnetV1(pretrained='vggface2').eval().to(device)
 
+
 UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "processed"
+REFERENCE_DIR = "reference_faces"
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+os.makedirs(REFERENCE_DIR, exist_ok=True)
+
+# Load reference embeddings from images
+def load_reference_embeddings():
+    embeddings = []
+    for filename in os.listdir(REFERENCE_DIR):
+        path = os.path.join(REFERENCE_DIR, filename)
+        try:
+            img = Image.open(path).convert("RGB")
+            face = mtcnn(img)
+
+            if face is not None:
+                if face.dim() == 3:
+                    # Unbatched face (C, H, W) -> (1, C, H, W)
+                    face = face.unsqueeze(0)
+                elif face.dim() == 4:
+                    # Already batched, no need to change
+                    pass
+                else:
+                    print(f"⚠️ Unexpected face dimensions from {filename}: {face.shape}")
+                    continue
+
+                face = face.to(device)
+                embedding = resnet(face).detach().cpu().numpy()[0]
+                embeddings.append((os.path.splitext(filename)[0], embedding))
+            else:
+                print(f"⚠️ No face detected in {filename}")
+        except Exception as e:
+            print(f"❌ Error loading {filename}: {e}")
+    return embeddings
+# Load on app start
+reference_embeddings = load_reference_embeddings()
+print(f"✅ Loaded {len(reference_embeddings)} reference embeddings")
+
+
 
 @app.route("/detect_faces", methods=["POST"])
 def detect_faces():
@@ -113,6 +156,95 @@ def detect_faces():
         "timestamps": timestamps,
         "video_url": "/get_video"
     })
+    
+    
+'''
+# Optional: Send email on match
+def send_email_alert(name):
+    sender_email = "your.email@example.com"
+    receiver_email = "receiver@example.com"
+    password = "your_app_password"  # Use App Password for Gmail
+
+    message = MIMEMultipart("alternative")
+    message["Subject"] = f"⚠️ Match Found: {name}"
+    message["From"] = sender_email
+    message["To"] = receiver_email
+
+    text = f"A match for '{name}' has been detected in the live camera feed."
+    message.attach(MIMEText(text, "plain"))
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(sender_email, password)
+            server.sendmail(sender_email, receiver_email, message.as_string())
+        print(f"✅ Email sent for match: {name}")
+    except Exception as e:
+        print("❌ Failed to send email:", e)
+'''
+
+# Main endpoint for face recognition
+@app.route("/api/face-recognition", methods=["POST"])
+def live_face_recognition():
+    data = request.json
+    image_data = data.get("image")
+    
+    if not image_data:
+        return jsonify({"error": "No image data provided"}), 400
+
+    try:
+        header, encoded = image_data.split(",", 1)
+        image_bytes = base64.b64decode(encoded)
+        img = Image.open(BytesIO(image_bytes)).convert("RGB")
+
+        # Detect face boxes
+        boxes, _ = mtcnn.detect(img)
+
+        if boxes is not None:
+            for box in boxes:
+                x1, y1, x2, y2 = map(int, box)
+                face_crop = img.crop((x1, y1, x2, y2))
+
+                # Convert to tensor and preprocess
+                face_tensor = torch.tensor(np.array(face_crop)).permute(2, 0, 1).float() / 255.0
+                face_tensor = face_tensor.unsqueeze(0).to(device)
+
+                # Resize if necessary
+                if face_tensor.shape[-2:] != (160, 160):
+                    face_tensor = torch.nn.functional.interpolate(
+                        face_tensor,
+                        size=(160, 160),
+                        mode='bilinear',
+                        align_corners=False
+                    )
+
+                # Generate embedding
+                face_embedding = resnet(face_tensor).detach().cpu().numpy()[0]
+
+                # Compare with reference embeddings
+                for name, ref_embedding in reference_embeddings:
+                    distance = np.linalg.norm(face_embedding - ref_embedding)
+                    print(f"Distance to {name}: {distance:.3f}")  # Optional logging
+
+                    if distance < 0.7:
+                        # Match found
+                        # send_email_alert(name)  # Uncomment when ready
+                        return jsonify({"match": True, "person": name})
+
+        # No match found
+        return jsonify({"match": False})
+
+    except Exception as e:
+        print("❌ Error during recognition:", e)
+        return jsonify({"error": "Processing error"}), 500
+    
+    
+# Endpoint to reload reference images without restarting server
+@app.route("/reload_references", methods=["POST"])
+def reload_references():
+    global reference_embeddings
+    reference_embeddings = load_reference_embeddings()
+    return jsonify({"message": "Reference faces reloaded", "count": len(reference_embeddings)})
+
 
 @app.route("/get_video", methods=["GET"])
 def get_video():
