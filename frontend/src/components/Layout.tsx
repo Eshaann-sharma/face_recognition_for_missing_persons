@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { UserSearch, Upload, Search, Camera, LogOut, Sun, Moon } from 'lucide-react';
+import { UserSearch, Upload, Search, Camera, LogOut, Sun, Moon, Video } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
 interface LayoutProps {
@@ -19,8 +19,8 @@ export function Layout({ children }: LayoutProps) {
 
   const navItems = [
     { path: '/', label: 'Home', icon: UserSearch },
-    { path: '/upload', label: 'Upload Image', icon: Upload },
-    { path: '/videoupload', label: 'Upload Video', icon: Camera },
+    { path: '/live', label: 'Live Camera', icon: Video },
+    { path: '/videoupload', label: 'Uploads', icon: Camera },
     { path: '/results', label: 'Search Results', icon: Search },
   ];
 

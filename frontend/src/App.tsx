@@ -6,6 +6,7 @@ import { Upload } from './pages/Upload';
 import { Results } from './pages/Results';
 import { VideoUpload} from './pages/videoupload';
 import { useAuthStore } from './store/authStore';
+import { Live } from './pages/live';
 
 function App() {
   const { isAuthenticated, isLoading, error, initialize } = useAuthStore();
@@ -48,6 +49,10 @@ function App() {
           <Route
             path="/videoupload"
             element={isAuthenticated ? <VideoUpload /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/live"
+            element={isAuthenticated ? <Live /> : <Navigate to="/" />}
           />
         </Routes>
       </Layout>
