@@ -85,7 +85,7 @@ export function Live() {
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isAutoCapturing && stream) {
-      interval = setInterval(captureFrame, 5000);
+      interval = setInterval(captureFrame, 2000);
     }
     return () => clearInterval(interval);
   }, [isAutoCapturing, stream]);
